@@ -65,6 +65,10 @@ app.put("/tasks/:id", (req, res) => {
   res.json(task);
 });
 
+app.get("/", (req, res) => {
+  res.send("API Running");
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on ${PORT}`);
 });
