@@ -2,7 +2,7 @@ const { getData, saveData } = require("../utils/fileHandler");
 
 const getAllTasks = (req, res) => {
   const data = getData();
-
+  const total_record = data.tasks.length;
   const searchTerm = req.query.search;
   const page = req.query.page;
   const page_size = req.query.page_size;
@@ -42,7 +42,7 @@ const getAllTasks = (req, res) => {
     });
   }
 
-  res.json({ tasks: data.tasks, page, page_size, total_record: data.tasks.length });
+  res.json({ tasks: data.tasks, page, page_size, total_record });
 };
 
 const createTask = (req, res) => {
