@@ -2,9 +2,10 @@ const { getData, saveData } = require("../utils/fileHandler");
 
 const getAllTasks = (req, res) => {
   const data = getData();
+  const total_record = data.tasks.length;
   const searchTerm = req.query.search;
-  const page = req.query.page || 1;
-  const limit = req.query.limit || 10;
+  const page = req.query.page;
+  const page_size = req.query.page_size;
   const sortOrder = req.query.sort || "asc";
   const sortBy = req.query.sortBy || "createdOn";
 
@@ -14,9 +15,9 @@ const getAllTasks = (req, res) => {
     );
   }
 
-  if (page && limit) {
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + parseInt(limit);
+  if (page && page_size) {
+    const startIndex = (page - 1) * page_size;
+    const endIndex = startIndex + parseInt(page_size);
     data.tasks = data.tasks.slice(startIndex, endIndex);
   }
 
@@ -41,7 +42,7 @@ const getAllTasks = (req, res) => {
     });
   }
 
-  res.json({ tasks: data.tasks, page, limit, total: data.tasks.length });
+  res.json({ tasks: data.tasks, page, page_size, total_record });
 };
 
 const createTask = (req, res) => {
