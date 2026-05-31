@@ -8,11 +8,24 @@ const getAllTasks = (req, res) => {
   const page_size = req.query.page_size;
   const sortOrder = req.query.sort || "asc";
   const sortBy = req.query.sortBy || "createdOn";
+  const status = req.query.status || "";
+  const priority = req.query.priority || "";
 
   if (searchTerm) {
     data.tasks = data.tasks.filter((task) =>
       task.title?.toLowerCase().includes(searchTerm.toLowerCase()),
     );
+  }
+
+  if (status !== "") {
+    if (status === "active") {
+      data.tasks = data.tasks.filter((task) => !task.completed);
+    }
+    data.tasks = data.tasks.filter((task) => task.completed === (status === "completed"));
+  }
+
+  if (priority !== "") {
+    data.tasks = data.tasks.filter((task) => task.priority === priority);
   }
 
   if (page && page_size) {
