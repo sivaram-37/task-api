@@ -1,150 +1,97 @@
-const { getData, saveData } = require("../utils/fileHandler");
+const Task = require("../models/taskModel");
 
-const getAllTasks = (req, res) => {
-  const data = getData();
-  const total_record = data.tasks.length;
-  const searchTerm = req.query.search;
-  const page = req.query.page;
-  const page_size = req.query.page_size;
-  const sortOrder = req.query.sort || "asc";
-  const sortBy = req.query.sortBy || "createdOn";
-  const status = req.query.status || "";
-  const priority = req.query.priority || "";
+const getAllTasks = async (req, res) => {
+  try {
+    const {
+      search,
+      status,
+      priority,
+      page = 1,
+      pageSize = 10,
+      sort = "asc",
+      sortBy = "createdAt",
+    } = req.query;
 
-  if (searchTerm) {
-    data.tasks = data.tasks.filter((task) =>
-      task.title?.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
-  }
+    const query = {};
 
-  if (status !== "") {
-    if (status === "active") {
-      data.tasks = data.tasks.filter((task) => !task.completed);
+    if (search) {
+      query.title = { $regex: search, $options: "i" };
     }
-    data.tasks = data.tasks.filter((task) => task.completed === (status === "completed"));
-  }
 
-  if (priority !== "") {
-    data.tasks = data.tasks.filter((task) => task.priority === priority);
-  }
+    if (status === "completed") {
+      query.completed = true;
+    }
+    if (status === "pending") {
+      query.completed = false;
+    }
 
-  if (page && page_size) {
-    const startIndex = (page - 1) * page_size;
-    const endIndex = startIndex + parseInt(page_size);
-    data.tasks = data.tasks.slice(startIndex, endIndex);
-  }
+    if (priority) {
+      query.priority = priority;
+    }
 
-  if (sortBy && sortOrder) {
-    const priorityOrder = { low: 0, medium: 1, high: 2 };
-    data.tasks = data.tasks.sort((a, b) => {
-      if (sortBy === "priority") {
-        const aPriority = priorityOrder[a[sortBy]] ?? 0;
-        const bPriority = priorityOrder[b[sortBy]] ?? 0;
-        if (sortOrder === "asc") {
-          return aPriority - bPriority;
-        } else {
-          return bPriority - aPriority;
-        }
-      } else {
-        if (sortOrder === "asc") {
-          return a[sortBy] > b[sortBy] ? 1 : -1;
-        } else {
-          return a[sortBy] < b[sortBy] ? 1 : -1;
-        }
-      }
+    const tasks = await Task.find(query)
+      .sort({ [sortBy]: sort === "asc" ? 1 : -1 })
+      .skip((page - 1) * pageSize)
+      .limit(Number(pageSize));
+
+    const totalRecord = await Task.countDocuments(query);
+
+    res.json({
+      tasks,
+      totalRecord,
+      page,
+      pageSize,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-
-  res.json({ tasks: data.tasks, page, page_size, total_record });
 };
 
-const createTask = (req, res) => {
-  const data = getData();
+const createTask = async (req, res) => {
+  try {
+    const task = await Task.create({
+      title: req.body.title,
+      completed: req.body.completed,
+      priority: req.body.priority,
+    });
 
-  if (!req.body.title) {
-    return res.status(400).json({ message: "Title is required" });
+    res.status(201).json(task);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-
-  const newTask = {
-    id: Date.now(),
-    title: req.body.title,
-    completed: req.body.completed || false,
-    priority: req.body.priority || "low",
-    createdOn: new Date().toISOString(),
-  };
-
-  data.tasks.push(newTask);
-
-  saveData(data);
-
-  res.json(newTask);
 };
 
-const deleteTaskById = (req, res) => {
-  const data = getData();
+const deleteTaskById = async (req, res) => {
+  const task = await Task.findByIdAndDelete(req.params.id);
 
-  data.tasks = data.tasks.filter((task) => task.id != req.params.id);
-
-  if (data.tasks.length === 0) {
+  if (!task) {
     return res.status(404).json({ message: "Task not found" });
   }
 
-  saveData(data);
+  res.json({ task, message: "Task deleted" });
+};
 
-  res.json({
-    message: "Deleted",
+const updateTaskById = async (req, res) => {
+  const task = await Task.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
   });
-};
-
-const updateTaskById = (req, res) => {
-  const data = getData();
-
-  const task = data.tasks.find((t) => t.id == req.params.id);
 
   if (!task) {
     return res.status(404).json({ message: "Task not found" });
   }
 
-  if (req.body.priority !== undefined) {
-    const allowedPriorities = ["low", "medium", "high"];
-    if (!allowedPriorities.includes(req.body.priority)) {
-      return res.status(400).json({ message: "Priority must be low, medium, or high" });
-    }
-    task.priority = req.body.priority;
-  }
-
-  if (req.body.title !== undefined) {
-    if (typeof req.body.title !== "string") {
-      return res.status(400).json({ message: "Title must be a string" });
-    }
-    if (req.body.title.trim() === "") {
-      return res.status(400).json({ message: "Title cannot be empty" });
-    }
-    task.title = req.body.title;
-  }
-
-  if (req.body.completed !== undefined) {
-    if (typeof req.body.completed !== "boolean") {
-      return res.status(400).json({ message: "Completed must be a boolean" });
-    }
-    task.completed = req.body.completed;
-  }
-
-  saveData(data);
-
-  res.json(task);
+  res.json({ task, message: "Task updated" });
 };
 
-const getTaskById = (req, res) => {
-  const data = getData();
-
-  const task = data.tasks.find((t) => t.id == req.params.id);
+const getTaskById = async (req, res) => {
+  const task = await Task.findById(req.params.id);
 
   if (!task) {
     return res.status(404).json({ message: "Task not found" });
   }
 
-  res.json(task);
+  res.json({ task, message: "Task found" });
 };
 
 module.exports = {
