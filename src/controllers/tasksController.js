@@ -12,7 +12,12 @@ const getAllTasks = async (req, res) => {
       sortBy = "createdAt",
     } = req.query;
 
-    const query = {};
+    const pageNum = Number(page);
+    const pageSizeNum = Number(pageSize);
+
+    const query = {
+      user: req.user.userId,
+    };
 
     if (search) {
       query.title = { $regex: search, $options: "i" };
@@ -31,16 +36,17 @@ const getAllTasks = async (req, res) => {
 
     const tasks = await Task.find(query)
       .sort({ [sortBy]: sort === "asc" ? 1 : -1 })
-      .skip((page - 1) * pageSize)
-      .limit(Number(pageSize));
+      .skip((pageNum - 1) * pageSizeNum)
+      .limit(pageSizeNum);
 
     const totalRecord = await Task.countDocuments(query);
 
     res.json({
       tasks,
       totalRecord,
-      page,
-      pageSize,
+      totalPages: Math.ceil(totalRecord / pageSizeNum),
+      page: pageNum,
+      pageSize: pageSizeNum,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -53,6 +59,7 @@ const createTask = async (req, res) => {
       title: req.body.title,
       completed: req.body.completed,
       priority: req.body.priority,
+      user: req.user.userId,
     });
 
     res.status(201).json(task);
@@ -62,7 +69,10 @@ const createTask = async (req, res) => {
 };
 
 const deleteTaskById = async (req, res) => {
-  const task = await Task.findByIdAndDelete(req.params.id);
+  const task = await Task.findOneAndDelete({
+    _id: req.params.id,
+    user: req.user.userId,
+  });
 
   if (!task) {
     return res.status(404).json({ message: "Task not found" });
@@ -72,10 +82,23 @@ const deleteTaskById = async (req, res) => {
 };
 
 const updateTaskById = async (req, res) => {
-  const task = await Task.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const allowedUpdates = {
+    title: req.body.title,
+    completed: req.body.completed,
+    priority: req.body.priority,
+  };
+
+  const task = await Task.findOneAndUpdate(
+    {
+      _id: req.params.id,
+      user: req.user.userId,
+    },
+    allowedUpdates,
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
 
   if (!task) {
     return res.status(404).json({ message: "Task not found" });
@@ -85,7 +108,10 @@ const updateTaskById = async (req, res) => {
 };
 
 const getTaskById = async (req, res) => {
-  const task = await Task.findById(req.params.id);
+  const task = await Task.findOne({
+    _id: req.params.id,
+    user: req.user.userId,
+  });
 
   if (!task) {
     return res.status(404).json({ message: "Task not found" });
