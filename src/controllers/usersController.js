@@ -17,20 +17,19 @@ const createUser = async (req, res) => {
     const hashedpassword = await bcrypt.hash(req.body.password, 10);
 
     const user = await User.create({
-      name: req.body.name,
+      firstname: req.body.firstname,
+      lastname: req.body.lastname,
       email: req.body.email,
       password: hashedpassword,
     });
 
-    const token = jwt.sign(
-      { userId: user._id, name: user.name, email: user.email },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
-      },
-    );
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
-    res.status(201).json(token);
+    res
+      .status(201)
+      .json({ token, fullname: user.lastname + ", " + user.firstname, email: user.email });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -50,15 +49,13 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    const token = jwt.sign(
-      { userId: user._id, name: user.name, email: user.email },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
-      },
-    );
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
-    res.status(200).json(token);
+    res
+      .status(200)
+      .json({ token, fullname: user.lastname + ", " + user.firstname, email: user.email });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
